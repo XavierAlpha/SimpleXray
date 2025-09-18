@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name" translatable="false">SimpleXray</string>
-    <string name="source_url" translatable="false">https://github.com/lhear/SimpleXray</string>
-    <string name="geoip_url" translatable="false">https://github.com/lhear/v2ray-rules-dat/releases/latest/download/geoip.dat</string>
-    <string name="geosite_url" translatable="false">https://github.com/lhear/v2ray-rules-dat/releases/latest/download/geosite.dat</string>
+    <string name="app_name" translatable="false">Camellia</string>
+    <string name="source_url" translatable="false">https://github.com/XavierAlpha/SimpleXray</string>
+    <string name="geoip_url" translatable="false">https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/geoip.dat</string>
+    <string name="geosite_url" translatable="false">https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/geosite.dat</string>
     <string name="connectivity_test_url" translatable="false">http://www.gstatic.com/generate_204</string>
     <string name="socks_port">Target SOCKS Port</string>
     <string name="dns_ipv4">DNS IPv4</string>
@@ -76,6 +76,10 @@
     <string name="save_fail">Failed to save</string>
     <string name="disable_vpn_title">Disable VPN Interface</string>
     <string name="disable_vpn_summary">When enabled, only the core will launch, and the VPN interface will be disabled.</string>
+    <string name="jump_to_sfa_title">Jump To sing-box</string>
+    <string name="jump_to_sfa_summary">When running in non-VPN mode, after starting core, open sing-box UI for selecting profiles.</string>
+    <string name="stop_sfa_when_stop_title">Stop sing-box</string>
+    <string name="stop_sfa_when_stop_summary">In non-VPN mode, when stopping core, also stop sing-box</string>
     <string name="connectivity_test">Connectivity Test</string>
     <string name="connectivity_test_target">Target Address</string>
     <string name="connectivity_test_timeout">Test Timeout (ms)</string>
