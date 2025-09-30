@@ -92,8 +92,8 @@ class TProxyService : VpnService() {
         Log.d(TAG, "TProxyService created.")
     }
 
-    override fun onStartCommand(intent: Intent, flags: Int, startId: Int): Int {
-        val action = intent.action
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        val action = intent?.action ?: ACTION_START
         when (action) {
             ACTION_DISCONNECT -> {
                 stopXray()
@@ -106,6 +106,9 @@ class TProxyService : VpnService() {
                     Log.d(TAG, "Received RELOAD_CONFIG action (core-only mode)")
                     reloadingRequested = true
                     xrayProcess?.destroy()
+                    @Suppress("SameParameterValue") val channelName = "socks5"
+                    initNotificationChannel(channelName)
+                    createNotification(channelName)
                     serviceScope.launch { runXrayProcess() }
                     return START_STICKY
                 }
@@ -124,6 +127,9 @@ class TProxyService : VpnService() {
                 logFileManager.clearLogs()
                 val prefs = Preferences(this)
                 if (prefs.disableVpn) {
+                    @Suppress("SameParameterValue") val channelName = "socks5"
+                    initNotificationChannel(channelName)
+                    createNotification(channelName)
                     serviceScope.launch { runXrayProcess() }
                     val successIntent = Intent(ACTION_START)
                     successIntent.setPackage(application.packageName)
@@ -255,6 +261,10 @@ class TProxyService : VpnService() {
     }
 
     private fun startService() {
+        @Suppress("SameParameterValue") val channelName = "socks5"
+        initNotificationChannel(channelName)
+        createNotification(channelName)
+
         if (tunFd != null) return
         val prefs = Preferences(this)
         val builder = getVpnBuilder(prefs)
@@ -286,9 +296,6 @@ class TProxyService : VpnService() {
         val successIntent = Intent(ACTION_START)
         successIntent.setPackage(application.packageName)
         sendBroadcast(successIntent)
-        @Suppress("SameParameterValue") val channelName = "socks5"
-        initNotificationChannel(channelName)
-        createNotification(channelName)
     }
 
     private fun getVpnBuilder(prefs: Preferences): Builder = Builder().apply {
@@ -349,13 +356,26 @@ class TProxyService : VpnService() {
         val pi = PendingIntent.getActivity(
             this, 0, i, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
-        val notification = NotificationCompat.Builder(this, channelName)
-        val notify = notification.setContentTitle(getString(R.string.app_name))
-            .setSmallIcon(R.drawable.ic_stat_name).setContentIntent(pi).build()
+        val notify = NotificationCompat.Builder(this, channelName)
+            .setContentTitle(getString(R.string.app_name))
+            .setSmallIcon(R.drawable.ic_stat_name)
+            .setContentIntent(pi)
+            .setOngoing(true)
+            .build()
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             startForeground(1, notify)
         } else {
-            startForeground(1, notify, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
+            val prefs = Preferences(this)
+            val type = if (!prefs.disableVpn) {
+                if (VpnService.prepare(this) == null) {
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_SYSTEM_EXEMPTED
+                } else {
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
+                }
+            } else {
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
+            }
+            startForeground(1, notify, type)
         }
     }
 
@@ -370,7 +390,7 @@ class TProxyService : VpnService() {
     private fun initNotificationChannel(channelName: String) {
         val notificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
         val name: CharSequence = getString(R.string.app_name)
-        val channel = NotificationChannel(channelName, name, NotificationManager.IMPORTANCE_DEFAULT)
+        val channel = NotificationChannel(channelName, name, NotificationManager.IMPORTANCE_LOW)
         notificationManager.createNotificationChannel(channel)
     }
 
