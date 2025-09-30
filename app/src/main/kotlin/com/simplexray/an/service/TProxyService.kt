@@ -38,6 +38,7 @@ import java.io.InterruptedIOException
 import java.net.ServerSocket
 import kotlin.concurrent.Volatile
 import kotlin.system.exitProcess
+import android.os.SystemClock
 
 class TProxyService : VpnService() {
     private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
@@ -134,6 +135,7 @@ class TProxyService : VpnService() {
                     val successIntent = Intent(ACTION_START)
                     successIntent.setPackage(application.packageName)
                     sendBroadcast(successIntent)
+                    maybeLaunchSFA()
                 } else {
                     startXray()
                 }
@@ -164,6 +166,32 @@ class TProxyService : VpnService() {
     override fun onRevoke() {
         stopXray()
         super.onRevoke()
+    }
+
+    private fun maybeLaunchSFA() {
+        val prefs = Preferences(this)
+        if (!prefs.disableVpn) return
+    
+        val now = SystemClock.elapsedRealtime()
+        val last = getSharedPreferences("chain_start", Context.MODE_PRIVATE)
+            .getLong("sfa_last_launch", 0L)
+        if (now - last < SFA_LAUNCH_DEBOUNCE_MS) return
+        getSharedPreferences("chain_start", Context.MODE_PRIVATE)
+            .edit().putLong("sfa_last_launch", now).apply()
+    
+        val pm = packageManager
+        val intent = pm.getLaunchIntentForPackage(SFA_PACKAGE)
+        if (intent == null) {
+            Log.w(TAG, "SFA not installed or no launcher activity: $SFA_PACKAGE")
+            return
+        }
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+        try {
+            startActivity(intent)
+            Log.d(TAG, "Launched SFA via launcher activity: $SFA_PACKAGE")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to launch SFA", e)
+        }
     }
 
     private fun startXray() {
@@ -399,6 +427,8 @@ class TProxyService : VpnService() {
         const val EXTRA_LOG_DATA: String = "log_data"
         private const val TAG = "VpnService"
         private const val BROADCAST_DELAY_MS: Long = 3000
+        private const val SFA_PACKAGE = "io.nekohasekai.sfa"
+        private const val SFA_LAUNCH_DEBOUNCE_MS: Long = 5000
 
         init {
             System.loadLibrary("hev-socks5-tunnel")
