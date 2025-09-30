@@ -10,6 +10,7 @@ import android.os.Build
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
 import android.util.Log
+import androidx.core.content.ContextCompat
 
 class QuickTileService : TileService() {
 
@@ -61,10 +62,12 @@ class QuickTileService : TileService() {
     override fun onClick() {
         super.onClick()
         Log.d(TAG, "QuickTileService clicked.")
+        val prefs = com.simplexray.an.prefs.Preferences(this)
+        val needVpn = !prefs.disableVpn
 
         qsTile.run {
             if (state == Tile.STATE_INACTIVE) {
-                if (VpnService.prepare(this@QuickTileService) != null) {
+                if (needVpn && VpnService.prepare(this@QuickTileService) != null) {
                     Log.e(TAG, "QuickTileService VPN not ready.")
                     return
                 }
@@ -99,7 +102,11 @@ class QuickTileService : TileService() {
         Intent(this, TProxyService::class.java).apply {
             this.action = action
         }.also { intent ->
-            startService(intent)
+            if (android.os.Build.VERSION.SDK_INT >= 26) {
+                ContextCompat.startForegroundService(this, intent)
+            } else {
+                startService(intent)
+            }
         }
     }
 
