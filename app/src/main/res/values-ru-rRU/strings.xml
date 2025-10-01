@@ -71,6 +71,10 @@
     <string name="save_fail">Ошибка сохранения</string>
     <string name="disable_vpn_title">Отключить VPN-интерфейс</string>
     <string name="disable_vpn_summary">Если включено, запускается только ядро без VPN-интерфейса</string>
+    <string name="jump_to_sfa_title">Перейти к sing-box</string>
+    <string name="jump_to_sfa_summary">При работе в режиме без VPN, после запуска ядра, откройте пользовательский интерфейс sing-box для выбора профилей.</string>
+    <string name="stop_sfa_when_stop_title">Остановить sing-box</string>
+    <string name="stop_sfa_when_stop_summary">В режиме без VPN, при остановке ядра, также останавливать sing-box.</string>
     <string name="connectivity_test">Тест подключения</string>
     <string name="connectivity_test_target">Целевой адрес</string>
     <string name="connectivity_test_timeout">Тайм-аут теста (мс)</string>

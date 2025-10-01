@@ -370,6 +370,28 @@ fun SettingsScreen(
             }
         )
 
+        ListItem(
+            headlineContent = { Text(stringResource(R.string.jump_to_sfa_title)) },
+            supportingContent = { Text(stringResource(R.string.jump_to_sfa_summary)) },
+            trailingContent = {
+                Switch(
+                    checked = settingsState.switches.jumpToSfa,
+                    onCheckedChange = { mainViewModel.setJumpToSfaEnabled(it) }
+                )
+            }
+        )
+
+        ListItem(
+            headlineContent = { Text(stringResource(R.string.stop_sfa_when_stop_title)) },
+            supportingContent = { Text(stringResource(R.string.stop_sfa_when_stop_summary)) },
+            trailingContent = {
+                Switch(
+                    checked = settingsState.switches.stopSfaWhenStop,
+                    onCheckedChange = { mainViewModel.setStopSfaWhenStopEnabled(it) }
+                )
+            }
+        )
+
         EditableListItemWithBottomSheet(
             headline = stringResource(R.string.socks_port),
             currentValue = settingsState.socksPort.value,

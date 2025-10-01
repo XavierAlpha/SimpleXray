@@ -300,6 +300,18 @@ class Preferences(context: Context) {
             setValueInProvider(THEME, value.value)
         }
 
+    var jumpToSfa: Boolean
+        get() = getBooleanPref(JUMP_TO_SFA, false)
+        set(value) {
+            setValueInProvider(JUMP_TO_SFA, value)
+        }
+
+    var stopSfaWhenStop: Boolean
+        get() = getBooleanPref(STOP_SFA_WHEN_STOP, false)
+        set(value) {
+            setValueInProvider(STOP_SFA_WHEN_STOP, value)
+        }
+
     companion object {
         const val SOCKS_ADDR: String = "SocksAddr"
         const val SOCKS_PORT: String = "SocksPort"
@@ -328,6 +340,8 @@ class Preferences(context: Context) {
         const val API_PORT: String = "ApiPort"
         const val BYPASS_SELECTED_APPS: String = "BypassSelectedApps"
         const val THEME: String = "Theme"
+        const val JUMP_TO_SFA: String = "JumpToSFA"
+        const val STOP_SFA_WHEN_STOP: String = "StopSfaWhenStop"
         private const val TAG = "Preferences"
     }
 }
