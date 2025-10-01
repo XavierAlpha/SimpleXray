@@ -2,6 +2,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <queries>
+        <package android:name="io.nekohasekai.sfa" />
+    </queries>
+
     <uses-feature
         android:name="android.software.leanback"
         android:required="false" />
@@ -16,9 +20,9 @@
         android:name="android.permission.QUERY_ALL_PACKAGES"
         tools:ignore="QueryAllPackagesPermission" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC"/>
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SYSTEM_EXEMPTED"/>
-
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="io.nekohasekai.sfa.permission.EXTERNAL_CONTROL" />
+    <uses-permission android:name="com.simplexray.an.permission.EXTERNAL_CONTROL" />
 
     <permission
         android:name="com.simplexray.an.permission.EXTERNAL_CONTROL"
@@ -47,12 +51,15 @@
         <service
             android:name="com.simplexray.an.service.TProxyService"
             android:exported="true"
-            android:foregroundServiceType="systemExempted|dataSync"
+            android:foregroundServiceType="specialUse|dataSync"
             android:permission="android.permission.BIND_VPN_SERVICE"
             android:process=":native">
             <intent-filter>
                 <action android:name="android.net.VpnService" />
             </intent-filter>
+           <property
+               android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+               android:value="VPN service" />
         </service>
 
         <service
@@ -99,6 +106,13 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name="com.simplexray.an.integration.SxStarterActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:theme="@android:style/Theme.NoDisplay"
+            android:permission="com.simplexray.an.permission.EXTERNAL_CONTROL" />
         <receiver
             android:name="com.simplexray.an.integration.IntegrationReceiver"
             android:exported="true"
