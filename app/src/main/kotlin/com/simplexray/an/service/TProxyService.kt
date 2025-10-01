@@ -38,7 +38,6 @@ import java.io.InterruptedIOException
 import java.net.ServerSocket
 import kotlin.concurrent.Volatile
 import kotlin.system.exitProcess
-import android.os.SystemClock
 
 class TProxyService : VpnService() {
     private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
@@ -100,7 +99,7 @@ class TProxyService : VpnService() {
             ACTION_DISCONNECT -> {
                 val prefs = Preferences(this)
                 if (prefs.disableVpn && prefs.stopSfaWhenStop && origin != ORIGIN_SFA) {
-                    controlSFA(start = false, jumpUi = false)
+                    kickSfa(start = false, showUi = false)
                 }
                 stopXray()
                 return START_NOT_STICKY
@@ -133,25 +132,15 @@ class TProxyService : VpnService() {
                 logFileManager.clearLogs()
                 val prefs = Preferences(this)
                 if (prefs.disableVpn) {
-                    if (xrayProcess != null) {
-                        @Suppress("SameParameterValue") val channelName = "socks5"
-                        initNotificationChannel(channelName)
-                        createNotification(channelName)
-                        Intent(ACTION_START).setPackage(packageName).also { sendBroadcast(it) }
-                        if (origin != ORIGIN_SFA && prefs.jumpToSfa) {
-                            controlSFA(start = true, jumpUi = true)
-                        }
-                        return START_STICKY
-                    }
-                    @Suppress("SameParameterValue") val channelName = "socks5"
+                    val channelName = "socks5"
                     initNotificationChannel(channelName)
                     createNotification(channelName)
-                    serviceScope.launch { runXrayProcess() }
-                    val successIntent = Intent(ACTION_START)
-                    successIntent.setPackage(application.packageName)
-                    sendBroadcast(successIntent)
+                    if (xrayProcess == null) {
+                        serviceScope.launch { runXrayProcess() }
+                    }
+                    Intent(ACTION_START).setPackage(packageName).also { sendBroadcast(it) }
                     if (origin != ORIGIN_SFA) {
-                        controlSFA(start = true, jumpUi = prefs.jumpToSfa)
+                        kickSfa(start = true, showUi = prefs.jumpToSfa)
                     }
                 } else {
                     startXray()
@@ -185,22 +174,61 @@ class TProxyService : VpnService() {
         super.onRevoke()
     }
 
-    private fun isPkgInstalled(pkg: String): Boolean = try {
-        packageManager.getApplicationInfo(pkg, 0); true
-    } catch (_: Exception) { false }
+    private fun kickSfa(start: Boolean, showUi: Boolean) {
+        val installed = try { packageManager.getApplicationInfo("io.nekohasekai.sfa", 0); true } catch (_: Exception) { false }
+        if (!installed) return
 
-    private fun controlSFA(start: Boolean, jumpUi: Boolean) {
-        val action = if (start) SFA_BRIDGE_ACTION_START else SFA_BRIDGE_ACTION_STOP
-        val intent = Intent(action).setPackage(SFA_PACKAGE)
-        if (jumpUi) intent.putExtra("show_ui", true)
-        runCatching { sendBroadcast(intent) }
-    
-        if (jumpUi) {
-            packageManager.getLaunchIntentForPackage(SFA_PACKAGE)?.let { launch ->
-                launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-                runCatching { startActivity(launch) }
+        val action    = if (start) "io.nekohasekai.sfa.ACTION_START" else "io.nekohasekai.sfa.ACTION_STOP"
+        val requestId = System.currentTimeMillis().toString()
+        val ackAction = "io.nekohasekai.sfa.ACTION_ACK"
+
+        val filter = android.content.IntentFilter(ackAction)
+        var gotAck = false
+        val ackReceiver = object : android.content.BroadcastReceiver() {
+            override fun onReceive(c: Context, i: Intent) {
+                if (requestId == i.getStringExtra("request_id")) {
+                    gotAck = true
+                    try { unregisterReceiver(this) } catch (_: Exception) { }
+                }
             }
         }
+        if (Build.VERSION.SDK_INT >= 33) {
+            registerReceiver(ackReceiver, filter, Context.RECEIVER_EXPORTED)
+        } else {
+            @Suppress("UnspecifiedRegisterReceiverFlag")
+            registerReceiver(ackReceiver, filter)
+        }
+
+        val req = Intent(action).apply {
+            setPackage("io.nekohasekai.sfa")
+            putExtra("request_id", requestId)
+            putExtra("caller_pkg", packageName)
+            if (start) putExtra("show_ui", showUi)
+        }
+        runCatching {
+            sendBroadcast(req, "io.nekohasekai.sfa.permission.EXTERNAL_CONTROL")
+        }
+
+        handler.postDelayed({
+            if (!gotAck) {
+                runCatching {
+                    sendBroadcast(req, "io.nekohasekai.sfa.permission.EXTERNAL_CONTROL")
+                }
+            }
+        }, ACK_RETRY_AT)
+
+        handler.postDelayed({
+            try { unregisterReceiver(ackReceiver) } catch (_: Exception) { }
+            if (!gotAck) {
+                val i = Intent().apply {
+                    setClassName("io.nekohasekai.sfa", "io.nekohasekai.sfa.bridge.SfaStarterActivity")
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    putExtra("op", if (start) "start" else "stop")
+                    if (start) putExtra("show_ui", showUi)
+                }
+                runCatching { startActivity(i) }
+            }
+        }, ACK_TIMEOUT_MS)
     }
 
     private fun startXray() {
@@ -400,7 +428,7 @@ class TProxyService : VpnService() {
             val prefs = Preferences(this)
             val type = if (!prefs.disableVpn) {
                 if (VpnService.prepare(this) == null) {
-                    ServiceInfo.FOREGROUND_SERVICE_TYPE_SYSTEM_EXEMPTED
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
                 } else {
                     ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
                 }
@@ -438,9 +466,8 @@ class TProxyService : VpnService() {
         const val ORIGIN_SFA  = "SFA"
         private const val TAG = "VpnService"
         private const val BROADCAST_DELAY_MS: Long = 3000
-        private const val SFA_PACKAGE = "io.nekohasekai.sfa"
-        private const val SFA_BRIDGE_ACTION_START = "io.nekohasekai.sfa.ACTION_START"
-        private const val SFA_BRIDGE_ACTION_STOP  = "io.nekohasekai.sfa.ACTION_STOP"
+        private const val ACK_TIMEOUT_MS: Long = 3000
+        private const val ACK_RETRY_AT: Long   = 1200
 
         init {
             System.loadLibrary("hev-socks5-tunnel")
