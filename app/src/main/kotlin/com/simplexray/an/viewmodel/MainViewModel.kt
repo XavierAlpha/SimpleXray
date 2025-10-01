@@ -92,7 +92,9 @@ class MainViewModel(application: Application) :
                 httpProxyEnabled = prefs.httpProxyEnabled,
                 bypassLanEnabled = prefs.bypassLan,
                 disableVpn = prefs.disableVpn,
-                themeMode = prefs.theme
+                themeMode = prefs.theme,
+                jumpToSfa = prefs.jumpToSfa,
+                stopSfaWhenStop = prefs.stopSfaWhenStop
             ),
             info = InfoStates(
                 appVersion = BuildConfig.VERSION_NAME,
@@ -185,7 +187,9 @@ class MainViewModel(application: Application) :
                 httpProxyEnabled = prefs.httpProxyEnabled,
                 bypassLanEnabled = prefs.bypassLan,
                 disableVpn = prefs.disableVpn,
-                themeMode = prefs.theme
+                themeMode = prefs.theme,
+                jumpToSfa = prefs.jumpToSfa,
+                stopSfaWhenStop = prefs.stopSfaWhenStop
             ),
             info = _settingsState.value.info.copy(
                 appVersion = BuildConfig.VERSION_NAME,
@@ -1053,6 +1057,20 @@ class MainViewModel(application: Application) :
             }
         }
         return 0
+    }
+
+    fun setJumpToSfaEnabled(enabled: Boolean) {
+        prefs.jumpToSfa = enabled
+        _settingsState.value = _settingsState.value.copy(
+            switches = _settingsState.value.switches.copy(jumpToSfa = enabled)
+        )
+    }
+
+    fun setStopSfaWhenStopEnabled(enabled: Boolean) {
+        prefs.stopSfaWhenStop = enabled
+        _settingsState.value = _settingsState.value.copy(
+            switches = _settingsState.value.switches.copy(stopSfaWhenStop = enabled)
+        )
     }
 
     companion object {

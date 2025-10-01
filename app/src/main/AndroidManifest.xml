@@ -18,6 +18,12 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SYSTEM_EXEMPTED"/>
 
+    <uses-permission android:name="io.nekohasekai.sfa.permission.EXTERNAL_CONTROL" />
+
+    <permission
+        android:name="com.simplexray.an.permission.EXTERNAL_CONTROL"
+        android:protectionLevel="signature" />
+
     <application
         android:banner="@mipmap/ic_banner"
         android:icon="@mipmap/ic_launcher"
@@ -92,5 +98,15 @@
                 <action android:name="android.service.quicksettings.action.QS_TILE_PREFERENCES" />
             </intent-filter>
         </activity>
+
+        <receiver
+            android:name="com.simplexray.an.integration.IntegrationReceiver"
+            android:exported="true"
+            android:permission="com.simplexray.an.permission.EXTERNAL_CONTROL">
+            <intent-filter>
+                <action android:name="com.simplexray.an.ACTION_START_CORE" />
+                <action android:name="com.simplexray.an.ACTION_STOP_CORE" />
+            </intent-filter>
+        </receiver>
     </application>
 </manifest>
