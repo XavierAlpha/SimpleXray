@@ -94,9 +94,14 @@ class TProxyService : VpnService() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        val origin = intent?.getStringExtra(EXTRA_ORIGIN) // "SFA" or null
         val action = intent?.action ?: ACTION_START
         when (action) {
             ACTION_DISCONNECT -> {
+                val prefs = Preferences(this)
+                if (prefs.disableVpn && prefs.stopSfaWhenStop && origin != ORIGIN_SFA) {
+                    controlSFA(start = false, jumpUi = false)
+                }
                 stopXray()
                 return START_NOT_STICKY
             }
@@ -128,6 +133,16 @@ class TProxyService : VpnService() {
                 logFileManager.clearLogs()
                 val prefs = Preferences(this)
                 if (prefs.disableVpn) {
+                    if (xrayProcess != null) {
+                        @Suppress("SameParameterValue") val channelName = "socks5"
+                        initNotificationChannel(channelName)
+                        createNotification(channelName)
+                        Intent(ACTION_START).setPackage(packageName).also { sendBroadcast(it) }
+                        if (origin != ORIGIN_SFA && prefs.jumpToSfa) {
+                            controlSFA(start = true, jumpUi = true)
+                        }
+                        return START_STICKY
+                    }
                     @Suppress("SameParameterValue") val channelName = "socks5"
                     initNotificationChannel(channelName)
                     createNotification(channelName)
@@ -135,7 +150,9 @@ class TProxyService : VpnService() {
                     val successIntent = Intent(ACTION_START)
                     successIntent.setPackage(application.packageName)
                     sendBroadcast(successIntent)
-                    maybeLaunchSFA()
+                    if (origin != ORIGIN_SFA) {
+                        controlSFA(start = true, jumpUi = prefs.jumpToSfa)
+                    }
                 } else {
                     startXray()
                 }
@@ -168,29 +185,21 @@ class TProxyService : VpnService() {
         super.onRevoke()
     }
 
-    private fun maybeLaunchSFA() {
-        val prefs = Preferences(this)
-        if (!prefs.disableVpn) return
+    private fun isPkgInstalled(pkg: String): Boolean = try {
+        packageManager.getApplicationInfo(pkg, 0); true
+    } catch (_: Exception) { false }
+
+    private fun controlSFA(start: Boolean, jumpUi: Boolean) {
+        val action = if (start) SFA_BRIDGE_ACTION_START else SFA_BRIDGE_ACTION_STOP
+        val intent = Intent(action).setPackage(SFA_PACKAGE)
+        if (jumpUi) intent.putExtra("show_ui", true)
+        runCatching { sendBroadcast(intent) }
     
-        val now = SystemClock.elapsedRealtime()
-        val last = getSharedPreferences("chain_start", Context.MODE_PRIVATE)
-            .getLong("sfa_last_launch", 0L)
-        if (now - last < SFA_LAUNCH_DEBOUNCE_MS) return
-        getSharedPreferences("chain_start", Context.MODE_PRIVATE)
-            .edit().putLong("sfa_last_launch", now).apply()
-    
-        val pm = packageManager
-        val intent = pm.getLaunchIntentForPackage(SFA_PACKAGE)
-        if (intent == null) {
-            Log.w(TAG, "SFA not installed or no launcher activity: $SFA_PACKAGE")
-            return
-        }
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-        try {
-            startActivity(intent)
-            Log.d(TAG, "Launched SFA via launcher activity: $SFA_PACKAGE")
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to launch SFA", e)
+        if (jumpUi) {
+            packageManager.getLaunchIntentForPackage(SFA_PACKAGE)?.let { launch ->
+                launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                runCatching { startActivity(launch) }
+            }
         }
     }
 
@@ -425,10 +434,13 @@ class TProxyService : VpnService() {
         const val ACTION_LOG_UPDATE: String = "com.simplexray.an.LOG_UPDATE"
         const val ACTION_RELOAD_CONFIG: String = "com.simplexray.an.RELOAD_CONFIG"
         const val EXTRA_LOG_DATA: String = "log_data"
+        const val EXTRA_ORIGIN = "origin"
+        const val ORIGIN_SFA  = "SFA"
         private const val TAG = "VpnService"
         private const val BROADCAST_DELAY_MS: Long = 3000
         private const val SFA_PACKAGE = "io.nekohasekai.sfa"
-        private const val SFA_LAUNCH_DEBOUNCE_MS: Long = 5000
+        private const val SFA_BRIDGE_ACTION_START = "io.nekohasekai.sfa.ACTION_START"
+        private const val SFA_BRIDGE_ACTION_STOP  = "io.nekohasekai.sfa.ACTION_STOP"
 
         init {
             System.loadLibrary("hev-socks5-tunnel")
