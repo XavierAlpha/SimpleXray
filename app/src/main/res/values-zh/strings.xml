@@ -71,6 +71,10 @@
     <string name="save_fail">保存失败</string>
     <string name="disable_vpn_title">禁用VPN接口</string>
     <string name="disable_vpn_summary">启用时，仅启动核心而不启用VPN</string>
+    <string name="jump_to_sfa_title">启动后跳转到 sing-box</string>
+    <string name="jump_to_sfa_summary">在“禁止 VPN 接口”时，启动核心后，自动打开 sing-box 界面以便选择配置</string>
+    <string name="stop_sfa_when_stop_title">停止时联动停止 sing-box</string>
+    <string name="stop_sfa_when_stop_summary">在“禁止 VPN 接口”模式下，停止核心时同时停止 sing-box</string>
     <string name="connectivity_test">连通性测试</string>
     <string name="connectivity_test_target">目标地址</string>
     <string name="connectivity_test_timeout">测试超时（毫秒）</string>
