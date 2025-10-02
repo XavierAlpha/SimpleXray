@@ -118,8 +118,8 @@
             android:exported="true"
             android:permission="com.simplexray.an.permission.EXTERNAL_CONTROL">
             <intent-filter>
-                <action android:name="com.simplexray.an.ACTION_START_CORE" />
-                <action android:name="com.simplexray.an.ACTION_STOP_CORE" />
+                <action android:name="io.nekohasekai.sfa.CTRL_FROM_SFA_START" />
+                <action android:name="io.nekohasekai.sfa.CTRL_FROM_SFA_STOP" />
             </intent-filter>
         </receiver>
     </application>
