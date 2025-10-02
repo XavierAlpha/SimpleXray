@@ -99,7 +99,7 @@ class TProxyService : VpnService() {
             ACTION_DISCONNECT -> {
                 val prefs = Preferences(this)
                 if (prefs.disableVpn && prefs.stopSfaWhenStop && origin != ORIGIN_SFA) {
-                    kickSfa(start = false, showUi = false)
+                    sendToSfa(start = false, showUi = false)
                 }
                 stopXray()
                 return START_NOT_STICKY
@@ -140,7 +140,7 @@ class TProxyService : VpnService() {
                     }
                     Intent(ACTION_START).setPackage(packageName).also { sendBroadcast(it) }
                     if (origin != ORIGIN_SFA) {
-                        kickSfa(start = true, showUi = prefs.jumpToSfa)
+                        sendToSfa(start = true, showUi = prefs.jumpToSfa)
                     }
                 } else {
                     startXray()
@@ -174,21 +174,28 @@ class TProxyService : VpnService() {
         super.onRevoke()
     }
 
-    private fun kickSfa(start: Boolean, showUi: Boolean) {
+    private fun sendToSfa(start: Boolean, showUi: Boolean) {
         val installed = try { packageManager.getApplicationInfo("io.nekohasekai.sfa", 0); true } catch (_: Exception) { false }
         if (!installed) return
 
-        val action    = if (start) "io.nekohasekai.sfa.ACTION_START" else "io.nekohasekai.sfa.ACTION_STOP"
+        val action = if (start) Bridge.ACT_FROM_SX_START else Bridge.ACT_FROM_SX_STOP
         val requestId = System.currentTimeMillis().toString()
-        val ackAction = "io.nekohasekai.sfa.ACTION_ACK"
+        val ackAction = Bridge.ACT_ACK_TO_SX
 
         val filter = android.content.IntentFilter(ackAction)
         var gotAck = false
         val ackReceiver = object : android.content.BroadcastReceiver() {
             override fun onReceive(c: Context, i: Intent) {
-                if (requestId == i.getStringExtra("request_id")) {
+                if (requestId == i.getStringExtra(Bridge.EXTRA_REQUEST_ID)) {
                     gotAck = true
                     try { unregisterReceiver(this) } catch (_: Exception) { }
+                    if (start && showUi) {
+                        val i = Intent().apply {
+                            setClassName(Bridge.SFA_PKG, "io.nekohasekai.sfa.ui.MainActivity")
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                        }
+                        runCatching { startActivity(i) }
+                    }
                 }
             }
         }
@@ -200,10 +207,11 @@ class TProxyService : VpnService() {
         }
 
         val req = Intent(action).apply {
-            setPackage("io.nekohasekai.sfa")
-            putExtra("request_id", requestId)
-            putExtra("caller_pkg", packageName)
-            if (start) putExtra("show_ui", showUi)
+            setPackage(Bridge.SFA_PKG)
+            putExtra(Bridge.EXTRA_REQUEST_ID, requestId)
+            putExtra(Bridge.EXTRA_CALLER_PKG, packageName)
+            putExtra(Bridge.EXTRA_CAUSE, "user")
+            if (start) putExtra(Bridge.EXTRA_SHOW_UI, showUi)
         }
         runCatching {
             sendBroadcast(req, "io.nekohasekai.sfa.permission.EXTERNAL_CONTROL")
@@ -221,10 +229,10 @@ class TProxyService : VpnService() {
             try { unregisterReceiver(ackReceiver) } catch (_: Exception) { }
             if (!gotAck) {
                 val i = Intent().apply {
-                    setClassName("io.nekohasekai.sfa", "io.nekohasekai.sfa.bridge.SfaStarterActivity")
+                    setClassName(Bridge.SFA_PKG, "io.nekohasekai.sfa.bridge.SfaStarterActivity")
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                     putExtra("op", if (start) "start" else "stop")
-                    if (start) putExtra("show_ui", showUi)
+                    if (start) putExtra(Bridge.EXTRA_SHOW_UI, showUi)
                 }
                 runCatching { startActivity(i) }
             }
@@ -452,6 +460,17 @@ class TProxyService : VpnService() {
         val name: CharSequence = getString(R.string.app_name)
         val channel = NotificationChannel(channelName, name, NotificationManager.IMPORTANCE_LOW)
         notificationManager.createNotificationChannel(channel)
+    }
+
+    object Bridge {
+        const val SFA_PKG = "io.nekohasekai.sfa"
+        const val ACT_FROM_SX_START = "com.simplexray.an.CTRL_FROM_SX_START"
+        const val ACT_FROM_SX_STOP  = "com.simplexray.an.CTRL_FROM_SX_STOP"
+        const val ACT_ACK_TO_SX     = "io.nekohasekai.sfa.ACK_TO_SX"
+        const val EXTRA_REQUEST_ID = "request_id"
+        const val EXTRA_CAUSE      = "cause"  // "user" | "remote" | "system"
+        const val EXTRA_SHOW_UI    = "show_ui"
+        const val EXTRA_CALLER_PKG = "caller_pkg"
     }
 
     companion object {
