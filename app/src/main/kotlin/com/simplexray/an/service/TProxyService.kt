@@ -132,7 +132,7 @@ class TProxyService : VpnService() {
                 logFileManager.clearLogs()
                 val prefs = Preferences(this)
                 if (prefs.disableVpn) {
-                    val channelName = "socks5"
+                    @Suppress("SameParameterValue") val channelName = "socks5"
                     initNotificationChannel(channelName)
                     createNotification(channelName)
                     if (xrayProcess == null) {
