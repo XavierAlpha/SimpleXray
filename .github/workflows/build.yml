@@ -2,6 +2,11 @@ name: "Build"
 
 on:
   workflow_dispatch:
+    inputs:
+      xray_ref:
+        description: "commit hash,branch name,tag"
+        required: false
+        type: string
   release:
     types:
       - published
@@ -41,6 +46,16 @@ jobs:
           echo "GEOSITE_VERSION=$(grep 'GEOSITE_VERSION' version.properties | cut -d '=' -f 2)" >> $GITHUB_ENV
           echo "GO_VERSION=$(grep 'GO_VERSION' version.properties | cut -d '=' -f 2)" >> $GITHUB_ENV
 
+      - name: Resolve ref (prefer manual input)
+        run: |
+          if [ -n "${{ inputs.xray_ref }}" ]; then
+            echo "XRAY_REF=${{ inputs.xray_ref }}" >> $GITHUB_ENV
+            echo "Using manual input XRAY_REF='${{ inputs.xray_ref }}'"
+          else
+            echo "XRAY_REF=${{ env.XRAY_VERSION }}" >> $GITHUB_ENV
+            echo "No manual input. Fallback to XRAY_VERSION='${{ env.XRAY_VERSION }}'"
+          fi
+
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
@@ -72,7 +87,7 @@ jobs:
           # Clone Xray-core source and checkout tag
           git clone https://github.com/XTLS/Xray-core.git
           cd Xray-core
-          git checkout ${{ env.XRAY_VERSION }}
+          git checkout ${{ env.XRAY_REF }}
           COMMID=$(git rev-parse HEAD | cut -c 1-7)
 
           # Set common environment variables
